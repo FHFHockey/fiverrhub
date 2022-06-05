@@ -1,0 +1,124 @@
+import pandas as pd
+import re
+import json
+import os
+import shutil
+
+xslx_file="C:/Users/timbr/OneDrive/Desktop/FHFH/natStatDB/NHLnatstat.xlsx"
+workbook = pd.read_excel(xslx_file, sheet_name = None) 
+
+counts ="""
+					Goals:
+						TotalAssists:
+						FirstAssists:
+						SecondAssists:
+						TotalPoints:
+						IPP:
+						Shots:
+						SHPct:
+						ixG:
+						iCF:
+						iFF:
+						iSCF:
+						iHDCF:
+						RushAttempts:
+						ReboundsCreated:
+						PIM:
+						TotalPenalties:
+						Minor:
+						Major:
+						Misconduct:
+						PenaltiesDrawn:
+						Giveaways:
+						Takeaways:
+						Hits:
+						HitsTaken:
+						ShotsBlocked:
+						FaceoffsWon:
+						FaceoffsLost:
+						FaceoffsPct:
+"""
+rates = """
+
+						TOIPerGP:
+						GoalsPerSixty:
+						TotalAssistsPerSixty:
+						FirstAssistsPerSixty:
+						SecondAssistsPerSixty:
+						TotalPointsPerSixty:
+						ShotsPerSixty:
+						ixGPerSixty:
+						iCFPerSixty:
+						iFFPerSixty:
+						iSCFPerSixty:
+						iHDCFPerSixty:
+						RushAttemptsPerSixty:
+						ReboundsCreatedPerSixty:
+						PIMPerSixty:
+						TotalPenaltiesPerSixty:
+						MinorPerSixty:
+						MajorPerSixty:
+						MisconductPerSixty:
+						PenaltiesDrawnPerSixty:
+						GiveawaysPerSixty:
+						TakeawaysPerSixty:
+						HitsPerSixty:
+						HitsTakenPerSixty:
+						ShotsBlockedPerSixty:
+						FaceoffsWonPerSixty:
+						FaceoffsLostPerSixty:
+"""
+
+counts = re.sub(r"[\n\t\s]*", "", counts)
+counts = counts.split(':')[:-1]
+rates = re.sub(r"[\n\t\s]*", "", rates)
+rates = rates.split(':')[:-1] #if the counts and rates are not changing too frequently, you can just paste the results
+#instead of letting the program do this every time.
+
+# Creates a new Folder for all the JSON files
+
+folder = "PlayerFiles"
+
+parentDirectory = "natStatDB"
+
+path = os.path.join(parentDirectory, folder)
+
+if not os.path.exists(path):
+    os.makedirs(path)
+    print("Directory '% s' created" % folder)
+else:
+    shutil.rmtree(path)           # Removes all the subdirectories!
+    os.makedirs(path)
+    print("Directory '% s' replaced" % folder)
+
+
+
+#Dumps JSON here 
+json_folder="natStatDB/PlayerFiles"
+
+for page_name in list(workbook.keys()):
+
+    b = workbook[page_name].copy()
+    seasons = {}
+    
+    for s in b['Season']:
+        sub_b = b[b['Season'] == s]
+        sub_b.reset_index(inplace=True)
+        bio = {'Team' : sub_b['Team'].values[0], 'Position' : sub_b['Position'].values[0], 'GP': int(sub_b['GP'].values[0])}
+        es = sub_b[[c + '.1' for c in counts] + [r + '.1' for r in rates]]
+        es.columns = counts + rates
+        pp = sub_b[[c + '.2' for c in counts] + [r + '.2' for r in rates]]
+        pp.columns = counts +rates
+        stats = {
+                'AS' : {'Counts' : sub_b[counts].transpose().to_dict()[0], 'Rates' : sub_b[rates].transpose().to_dict()[0]},
+                'ES' : {'Counts' : es[counts].transpose().to_dict()[0], 'Rates' : es[rates].transpose().to_dict()[0]},
+                'PP' : {'Counts' : pp[counts].transpose().to_dict()[0], 'Rates' : pp[rates].transpose().to_dict()[0]}
+        }
+        seasons[s] = {'Bio' : bio, 'Stats' : stats}
+
+        json_formatted_str = '[' + json.dumps(seasons, indent=2) +']'
+
+        with open(r'{}/{}.json'.format(json_folder,re.sub(r"[^0-9a-zA-Z]+", '', page_name)), 'w+') as fp:
+            fp.write(json_formatted_str)
+        break
+
